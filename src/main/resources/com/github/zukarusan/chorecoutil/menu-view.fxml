@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.text.*?>
+<?import javafx.scene.effect.*?>
+<?import java.lang.*?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.Button?>
+
+<VBox alignment="TOP_CENTER" maxWidth="-Infinity" minWidth="-Infinity" prefHeight="295.0" prefWidth="600.0" style="-fx-background-color: #293240; -fx-border-color: #1d466e; -fx-border-width: 5;" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1">
+   <children>
+      <Label alignment="CENTER" text="Java Chord Recognition Utility" textAlignment="CENTER" textFill="#e1dada">
+         <font>
+            <Font name="Meiryo" size="18.0" />
+         </font>
+         <effect>
+            <BoxBlur height="1.5" width="0.0" />
+         </effect>
+         <VBox.margin>
+            <Insets top="10.0" />
+         </VBox.margin>
+      </Label>
+      <HBox alignment="CENTER" prefHeight="100.0" prefWidth="200.0">
+         <children>
+            <Button maxWidth="-Infinity" mnemonicParsing="false" prefWidth="300.0" style="-fx-background-color: #234566; -fx-border-color: #0d1a26; -fx-border-width: 2;" text="From file" textFill="#dee0ff" HBox.hgrow="ALWAYS">
+               <HBox.margin>
+                  <Insets left="15.0" right="15.0" />
+               </HBox.margin>
+               <font>
+                  <Font size="14.0" />
+               </font>
+            </Button>
+            <Button maxWidth="-Infinity" mnemonicParsing="false" prefWidth="300.0" style="-fx-background-color: #234566; -fx-border-color: #0d1a26; -fx-border-width: 2;" text="Record from mic" textFill="#dee0ff" HBox.hgrow="ALWAYS">
+               <HBox.margin>
+                  <Insets left="15.0" right="15.0" />
+               </HBox.margin>
+               <font>
+                  <Font size="14.0" />
+               </font>
+            </Button>
+            <Button maxWidth="-Infinity" mnemonicParsing="false" prefWidth="300.0" style="-fx-background-color: #234566; -fx-border-color: #0d1a26; -fx-border-width: 2;" text="Stream from internet" textFill="#dee0ff" HBox.hgrow="ALWAYS">
+               <HBox.margin>
+                  <Insets left="15.0" right="15.0" />
+               </HBox.margin>
+               <font>
+                  <Font size="14.0" />
+               </font>
+            </Button>
+         </children>
+      </HBox>
+      <VBox prefHeight="200.0" prefWidth="100.0" style="-fx-background-color: #293240;">
+         <children>
+            <Label text="Recent Files" textFill="#d0cccc">
+               <VBox.margin>
+                  <Insets bottom="5.0" left="10.0" top="10.0" />
+               </VBox.margin>
+            </Label>
+            <HBox alignment="CENTER_LEFT" prefHeight="0.0" prefWidth="600.0" style="-fx-border-color: #17202b; -fx-border-width: 1 0; -fx-background-color: #212f40;">
+               <children>
+                  <Label text="None..." textFill="#e1e1e1">
+                     <HBox.margin>
+                        <Insets left="15.0" right="10.0" />
+                     </HBox.margin>
+                     <font>
+                        <Font size="14.0" />
+                     </font>
+                     <effect>
+                        <Glow level="0.71" />
+                     </effect>
+                  </Label>
+               </children>
+               <padding>
+                  <Insets bottom="10.0" top="10.0" />
+               </padding>
+               <opaqueInsets>
+                  <Insets />
+               </opaqueInsets>
+            </HBox>
+         </children>
+         <effect>
+            <ColorAdjust brightness="0.05" />
+         </effect>
+      </VBox>
+      <HBox alignment="CENTER_RIGHT" prefHeight="100.0" prefWidth="200.0">
+         <children>
+            <Button mnemonicParsing="false" style="-fx-background-color: #234566; -fx-border-color: black;" text="Close" textFill="#f8f8f8">
+               <HBox.margin>
+                  <Insets right="10.0" />
+               </HBox.margin>
+               <padding>
+                  <Insets bottom="3.0" left="15.0" right="15.0" top="3.0" />
+               </padding></Button>
+         </children>
+         <opaqueInsets>
+            <Insets />
+         </opaqueInsets>
+      </HBox>
+   </children>
+</VBox>
