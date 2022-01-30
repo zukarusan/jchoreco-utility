@@ -87,7 +87,7 @@
       </VBox>
       <HBox alignment="CENTER_RIGHT" prefHeight="100.0" prefWidth="200.0">
          <children>
-            <Button mnemonicParsing="false" style="-fx-background-color: #234566; -fx-border-color: black;" text="Close" textFill="#f8f8f8">
+            <Button fx:id="closeButton" mnemonicParsing="false" style="-fx-background-color: #234566; -fx-border-color: black;" text="Close" textFill="#f8f8f8">
                <HBox.margin>
                   <Insets right="10.0" />
                </HBox.margin>

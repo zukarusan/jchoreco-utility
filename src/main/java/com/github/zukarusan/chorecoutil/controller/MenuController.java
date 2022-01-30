@@ -7,9 +7,12 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 
@@ -20,10 +23,16 @@ public class MenuController {
     public static final int RECORD = 9;
 
     public URL urlMenu;
-    public URL urlMain;
+    public URL urlFiles;
+    public URL urlRecord;
+    public URL urlStream;
 
     public URL recentFiles = null;
 
+    FileChooser fileChooser = new FileChooser();
+    FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("Audio WAV files (*.wav)", "*.wav");
+
+    private Scene viewScene;
     private final Scene menu;
     private final Stage primary;
     private Scene main;
@@ -33,8 +42,11 @@ public class MenuController {
         try {
             this.primary = primary;
             urlMenu = resourceGetter.getResource("menu-view.fxml");
-            urlMain = resourceGetter.getResource("choreco-main-view.fxml");
+            urlFiles = resourceGetter.getResource("choreco-main-view.fxml");
             assert urlMenu != null;
+
+            fileChooser.setTitle("Choose audio files");
+            fileChooser.getExtensionFilters().add(extFilter);
 
             FXMLLoader loader = new FXMLLoader(urlMenu);
             loader.setController(this);
@@ -49,33 +61,42 @@ public class MenuController {
     }
 
     @FXML
+    protected Button closeButton;
+
+    @FXML
+    public void initialize() {
+        closeButton.setOnAction(this::closeMenu);
+    }
+
+    @FXML
     public void closeMenu(Event event) {
         primary.close();
         Platform.exit();
         event.consume();
     }
 
-    private void checkOpen() {
-        if (isOpen) {
-            throw new IllegalCallerException("Is still open");
+    @FXML
+    public void openFromFile() {
+        try {
+            File audioFile = fileChooser.showOpenDialog(primary);
+            FileController fileController = new FileController(audioFile, this::openMenuBack);
+            openViewer(urlFiles, fileController);
+        } catch (IOException e) {
+            throw new IllegalStateException("Cannot create controller", e);
         }
     }
 
-    @FXML
-    public void openFromFile() {
-        checkOpen();
-    }
-
-    protected void openMainUtil(ChordViewController controller) {
+    protected void openViewer(URL viewUrl, ChordViewController controller) {
         if (isOpen) {
             throw new IllegalCallerException("Is still open");
         }
         try {
-            FXMLLoader loader = new FXMLLoader(urlMain);
+            FXMLLoader loader = new FXMLLoader(viewUrl);
+            loader.setController(controller);
             Parent root = loader.load();
-            main = new Scene(root, 800, 600);
+            viewScene = new Scene(root, 800, 600);
             isOpen = true;
-            primary.setScene(main);
+            primary.setScene(viewScene);
         } catch (IOException e) {
             throw new IllegalStateException("Error in creating main viewer", e);
         }
@@ -109,10 +130,10 @@ public class MenuController {
         return primary;
     }
 
-
     public void openMenuBack() {
         if (isOpen) {
             isOpen = false;
+            viewScene = null;
             primary.setScene(menu);
         }
     }

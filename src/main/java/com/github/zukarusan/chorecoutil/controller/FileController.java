@@ -7,8 +7,9 @@ import java.io.*;
 import java.net.URL;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.Callable;
 
-public class FileController {
+public class FileController implements ChordViewController {
 
     public static final int ALL_MODE = 0;
     public static final int ONE_MODE = 1;
@@ -18,10 +19,13 @@ public class FileController {
     private Parent AllView;
     private Parent OneView;
 
+    private final FileWriter writer;
     private final float sampleRate;
     private final int bufferSize;
     private final long totalSegment;
     private final InputStream audioStream; // change to tarsos
+
+    private final Runnable callback;
 
     static class Segment {
         public float from;
@@ -35,9 +39,21 @@ public class FileController {
 
     List<Segment> segments = new LinkedList<>();
 
-    public FileController(File chordCache) throws FileNotFoundException {
+    public FileController(File chordCache, Runnable callback) throws FileNotFoundException {
         this.currentMode = ALL_MODE;
         this.chordBuffer = chordCache;
+        this.callback = callback;
+
+        try {
+            writer = new FileWriter(chordCache);
+        } catch (IOException e) {
+            throw new IllegalStateException("Cannot create new cache", e);
+        }
+
+
+        if (!chordCache.exists()) {
+
+        }
 
         BufferedReader reader = new BufferedReader(new FileReader(chordBuffer));
         String row;
@@ -49,6 +65,7 @@ public class FileController {
                 String[] parse = row.split(" ");
                 segments.add(new Segment (Float.parseFloat(parse[0]), Float.parseFloat(parse[1]), parse[2]));
             }
+            reader.close();
         } catch (IOException e) {
             throw new IllegalStateException("Cannot read header cache file", e);
         }
@@ -71,17 +88,32 @@ public class FileController {
     }
 
     @FXML
+    public void close() {
+        try {
+            writer.close();
+            callback.run();
+        } catch (IOException e) {
+            throw new IllegalStateException("Cannot close writer");
+        }
+    }
+
+    @FXML
     public void initialize() {
 
     }
 
     @FXML
-    protected void start() {
+    public void start() {
 
     }
 
     @FXML
-    protected void stop() {
+    public void stop() {
+
+    }
+
+    @Override
+    public void save() {
 
     }
 
