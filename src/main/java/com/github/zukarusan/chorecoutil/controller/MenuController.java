@@ -60,12 +60,13 @@ public class MenuController {
         }
     }
 
-    @FXML
-    protected Button closeButton;
+    @FXML protected Button closeButton;
+    @FXML protected Button fromFile;
 
     @FXML
     public void initialize() {
         closeButton.setOnAction(this::closeMenu);
+        fromFile.setOnAction(this::openFromFile);
     }
 
     @FXML
@@ -76,10 +77,12 @@ public class MenuController {
     }
 
     @FXML
-    public void openFromFile() {
+    public void openFromFile(Event event) {
         try {
             File audioFile = fileChooser.showOpenDialog(primary);
-            FileController fileController = new FileController(audioFile, this::openMenuBack);
+            if (audioFile == null) return;
+//            primary.hide();  // A.... bug? or just use new stage or new application
+            FileController fileController = new FileController(primary, audioFile, this::openMenuBack);
             openViewer(urlFiles, fileController);
         } catch (IOException e) {
             throw new IllegalStateException("Cannot create controller", e);
@@ -97,6 +100,7 @@ public class MenuController {
             viewScene = new Scene(root, 800, 600);
             isOpen = true;
             primary.setScene(viewScene);
+            primary.show();
         } catch (IOException e) {
             throw new IllegalStateException("Error in creating main viewer", e);
         }

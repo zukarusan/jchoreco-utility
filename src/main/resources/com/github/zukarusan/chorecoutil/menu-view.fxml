@@ -26,7 +26,7 @@
       </Label>
       <HBox alignment="CENTER" prefHeight="100.0" prefWidth="200.0">
          <children>
-            <Button maxWidth="-Infinity" mnemonicParsing="false" prefWidth="300.0" style="-fx-background-color: #234566; -fx-border-color: #0d1a26; -fx-border-width: 2;" text="From file" textFill="#dee0ff" HBox.hgrow="ALWAYS">
+            <Button fx:id="fromFile" maxWidth="-Infinity" mnemonicParsing="false" prefWidth="300.0" style="-fx-background-color: #234566; -fx-border-color: #0d1a26; -fx-border-width: 2;" text="From file" textFill="#dee0ff" HBox.hgrow="ALWAYS">
                <HBox.margin>
                   <Insets left="15.0" right="15.0" />
                </HBox.margin>
