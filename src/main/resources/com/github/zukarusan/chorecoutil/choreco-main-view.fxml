@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.scene.canvas.*?>
 <?import javafx.geometry.*?>
 <?import java.lang.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-
 
 <VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="600.0" prefWidth="800.0" style="-fx-background-color: #5984c9;" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1">
    <children>
@@ -16,23 +16,15 @@
                   <MenuItem mnemonicParsing="false" text="Save As..." />
                   <SeparatorMenuItem mnemonicParsing="false" />
                   <MenuItem mnemonicParsing="false" text="Record new" />
-                  <SeparatorMenuItem mnemonicParsing="false" />
-                  <MenuItem mnemonicParsing="false" text="From sound file..." />
-                  <MenuItem mnemonicParsing="false" text="From saved chord..." />
-                  <MenuItem mnemonicParsing="false" text="From internet..." />
+                  <MenuItem mnemonicParsing="false" text="Open..." />
                   <SeparatorMenuItem mnemonicParsing="false" />
               <MenuItem mnemonicParsing="false" text="Close" />
             </items>
           </Menu>
-          <Menu mnemonicParsing="false" text="Mode">
-            <items>
-                  <RadioMenuItem mnemonicParsing="false" text="All-view" />
-                  <RadioMenuItem mnemonicParsing="false" text="One-by-one" />
-            </items>
-          </Menu>
           <Menu mnemonicParsing="false" text="Help">
             <items>
-              <MenuItem mnemonicParsing="false" text="About" />
+              <MenuItem mnemonicParsing="false" text="Chord Color Map" />
+                  <MenuItem mnemonicParsing="false" text="About" />
             </items>
           </Menu>
         </menus>
@@ -51,5 +43,6 @@
             </Button>
         </items>
       </ToolBar>
+      <Canvas fx:id="chordCanvas" height="530.0" width="800.0" />
    </children>
 </VBox>

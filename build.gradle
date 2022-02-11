@@ -3,6 +3,8 @@ plugins {
     id 'application'
     id 'org.openjfx.javafxplugin' version '0.0.10'
     id 'org.beryx.jlink' version '2.24.1'
+    id 'de.jjohannes.extra-java-module-info' version '0.11'
+
 }
 
 group 'com.github.zukarusan'
@@ -19,19 +21,21 @@ ext {
 sourceCompatibility = '11'
 targetCompatibility = '11'
 
+
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
-//application {
-//    mainModule = 'com.github.zukarusan.chorecoutil'
-//    mainClass = 'com.github.zukarusan.chorecoutil.MainApplication'
-//}
+application {
+    mainModule = 'com.github.zukarusan.chorecoutil'
+    mainClass = 'com.github.zukarusan.chorecoutil.MainApplication'
+}
 
 javafx {
     version = '11.0.2'
     modules = ['javafx.controls', 'javafx.fxml']
 }
+
 
 dependencies {
     implementation('org.controlsfx:controlsfx:11.1.0')
@@ -47,8 +51,65 @@ dependencies {
     implementation('org.tensorflow:tensorflow-core-platform:0.4.0') // Tensorflow API
     implementation('javazoom:jlayer:1.0.1') // MP3 Decoder
 
+//    implementation(group: 'org.bytedeco', name: 'tensorflow-platform', version: '1.15.5-1.5.6')
     testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
+}
+
+import org.gradle.internal.os.OperatingSystem
+extraJavaModuleInfo {
+//     failOnMissingModuleInfo.set(false)
+
+    module("TarsosDSP-2.4.jar", "TarsosDSP", "2.4") {
+        exports("be.tarsos.dsp")
+        exports("be.tarsos.dsp.io")
+        exports("be.tarsos.dsp.io.jvm")
+        requires("java.desktop")
+        requires("java.logging")
+    }
+
+    module("JTransforms-3.1.jar", "JTransforms", "3.1") {
+        requires("JLargeArrays")
+        requires("commons-math3")
+    }
+    module("jlayer-1.0.1.jar", "jlayer", "1.0.1")
+
+    module("commons-math3-3.5.jar", "commons-math3", "3.5")
+    module("JLargeArrays-1.5.jar", "JLargeArrays", "1.5")
+    module("protobuf-java-3.9.2.jar", "probuf-java", "3.9.2") {
+        requires("java.logging")
+    }
+//    module("tensorflow-platform-1.15.5-1.5.6.jar", "tensorflow-platform", "1.15.5-1.5.6")
+    if (OperatingSystem.current().isLinux()) {
+        module("tensorflow-core-api-0.4.0-linux-x86_64.jar", "org.tensorflow.core.api.linux-x86_64", "0.4.0")
+    } else if (OperatingSystem.current().isWindows()) {
+        module("tensorflow-core-api-0.4.0-windows-x86_64.jar", "org.tensorflow.core.api.windows-x86_64", "0.4.0")
+    } else if (OperatingSystem.current().isMacOsX()) {
+        module("tensorflow-core-api-0.4.0-macosx-x86_64.jar", "org.tensorflow.core.api.macosx-x86_64", "0.4.0")
+    }
+    module("jchoreco-0.9.2.jar", "jchoreco", "0.9.2") {
+        requires("TarsosDSP")
+        requires("JTransforms")
+        requires("jlayer")
+        requires("java.desktop")
+        requires("org.tensorflow.ndarray")
+        requires("probuf-java")
+        if (OperatingSystem.current().isLinux()) {
+            requires("org.tensorflow.core.api.linux-x86_64")
+        } else if (OperatingSystem.current().isWindows()) {
+            requires("org.tensorflow.core.api.windows-x86_64")
+        } else if (OperatingSystem.current().isMacOsX()) {
+            requires("org.tensorflow.core.api.macosx-x86_64")
+        }
+        requires("org.tensorflow.core.api")
+
+        requires("org.bytedeco.javacpp")
+
+//        exports("com.github.zukarusan.jchoreco")
+        exports("com.github.zukarusan.jchoreco.system")
+        exports("com.github.zukarusan.jchoreco.component")
+        exports("com.github.zukarusan.jchoreco.util")
+    }
 }
 
 test {
@@ -56,8 +117,9 @@ test {
 }
 
 jlink {
-    imageZip = project.file("${buildDir}/distributions/app-${javafx.platform.classifier}.zip")
+    imageZip = project.file("${buildDir}/distributions/app-${javafx.platform.classifier}.zip") as RegularFile
     options = ['--strip-debug', '--compress', '2', '--no-header-files', '--no-man-pages']
+//    addExtraModulePath('TarsosDSP')
     launcher {
         name = 'app'
     }

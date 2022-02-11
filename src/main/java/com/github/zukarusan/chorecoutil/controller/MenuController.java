@@ -12,6 +12,7 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
+import javax.sound.sampled.UnsupportedAudioFileException;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
@@ -37,10 +38,12 @@ public class MenuController {
     private final Stage primary;
     private Scene main;
     private boolean isOpen = false;
+    private final ClassLoader classLoader;
 
     public MenuController(Stage primary, Class<? extends MainApplication> resourceGetter) {
         try {
             this.primary = primary;
+            classLoader = resourceGetter.getClassLoader();
             urlMenu = resourceGetter.getResource("menu-view.fxml");
             urlFiles = resourceGetter.getResource("choreco-main-view.fxml");
             assert urlMenu != null;
@@ -49,8 +52,8 @@ public class MenuController {
             fileChooser.getExtensionFilters().add(extFilter);
 
             FXMLLoader loader = new FXMLLoader(urlMenu);
+            loader.setClassLoader(classLoader);
             loader.setController(this);
-            loader.setClassLoader(resourceGetter.getClassLoader());
             menu = new Scene(loader.load(), 500, 400);
 
             primary.initStyle(StageStyle.UNDECORATED);
@@ -79,13 +82,15 @@ public class MenuController {
     @FXML
     public void openFromFile(Event event) {
         try {
-            File audioFile = fileChooser.showOpenDialog(primary);
-            if (audioFile == null) return;
+            File file = fileChooser.showOpenDialog(primary);
+            if (file == null) return;
 //            primary.hide();  // A.... bug? or just use new stage or new application
-            FileController fileController = new FileController(primary, audioFile, this::openMenuBack);
+            FileController fileController = new FileController(primary, file, this::openMenuBack);
             openViewer(urlFiles, fileController);
         } catch (IOException e) {
             throw new IllegalStateException("Cannot create controller", e);
+        } catch (UnsupportedAudioFileException e) {
+            throw new IllegalStateException("Unsupported file", e);
         }
     }
 
@@ -95,6 +100,7 @@ public class MenuController {
         }
         try {
             FXMLLoader loader = new FXMLLoader(viewUrl);
+            loader.setClassLoader(classLoader);
             loader.setController(controller);
             Parent root = loader.load();
             viewScene = new Scene(root, 800, 600);

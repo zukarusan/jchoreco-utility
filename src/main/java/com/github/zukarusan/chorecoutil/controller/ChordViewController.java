@@ -1,15 +1,15 @@
 package com.github.zukarusan.chorecoutil.controller;
 
+import javafx.event.Event;
 import javafx.fxml.FXML;
 
 public interface ChordViewController {
     @FXML
-    void initialize();
+    void initialize(Event event);
     @FXML
-    void start();
+    void start(Event event);
     @FXML
-    void stop();
+    void stop(Event event);
     @FXML
-    void save();
-
+    void close(Event event);
 }

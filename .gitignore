@@ -89,3 +89,4 @@ fabric.properties
 /ann/saved_model/
 /.cache_model
 /jchoreco/.cache_model/
+/.cache_byte

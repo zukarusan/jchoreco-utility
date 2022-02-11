@@ -1,5 +1,7 @@
 package com.github.zukarusan.chorecoutil.controller;
 
+import javafx.event.Event;
+
 import java.io.InputStream;
 
 public class RecordController implements ChordViewController {
@@ -9,22 +11,22 @@ public class RecordController implements ChordViewController {
     }
 
     @Override
-    public void initialize() {
+    public void initialize(Event event) {
 
     }
 
     @Override
-    public void start() {
+    public void start(Event event) {
 
     }
 
     @Override
-    public void stop() {
+    public void stop(Event event) {
 
     }
 
     @Override
-    public void save() {
+    public void close(Event event) {
 
     }
 }
