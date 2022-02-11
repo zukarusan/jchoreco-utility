@@ -5,7 +5,7 @@ import javafx.fxml.FXML;
 
 public interface ChordViewController {
     @FXML
-    void initialize(Event event);
+    void initialize();
     @FXML
     void start(Event event);
     @FXML

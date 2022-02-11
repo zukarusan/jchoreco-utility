@@ -26,7 +26,7 @@
       </Label>
       <HBox alignment="CENTER" prefHeight="100.0" prefWidth="200.0">
          <children>
-            <Button fx:id="fromFile" maxWidth="-Infinity" mnemonicParsing="false" prefWidth="300.0" style="-fx-background-color: #234566; -fx-border-color: #0d1a26; -fx-border-width: 2;" text="From file" textFill="#dee0ff" HBox.hgrow="ALWAYS">
+            <Button fx:id="fromFile" maxWidth="-Infinity" mnemonicParsing="false" prefWidth="300.0" styleClass="buttonMenu" text="From file" HBox.hgrow="ALWAYS">
                <HBox.margin>
                   <Insets left="15.0" right="15.0" />
                </HBox.margin>
@@ -34,15 +34,7 @@
                   <Font size="14.0" />
                </font>
             </Button>
-            <Button maxWidth="-Infinity" mnemonicParsing="false" prefWidth="300.0" style="-fx-background-color: #234566; -fx-border-color: #0d1a26; -fx-border-width: 2;" text="Record from mic" textFill="#dee0ff" HBox.hgrow="ALWAYS">
-               <HBox.margin>
-                  <Insets left="15.0" right="15.0" />
-               </HBox.margin>
-               <font>
-                  <Font size="14.0" />
-               </font>
-            </Button>
-            <Button maxWidth="-Infinity" mnemonicParsing="false" prefWidth="300.0" style="-fx-background-color: #234566; -fx-border-color: #0d1a26; -fx-border-width: 2;" text="Stream from internet" textFill="#dee0ff" HBox.hgrow="ALWAYS">
+            <Button maxWidth="-Infinity" mnemonicParsing="false" prefWidth="300.0" styleClass="buttonMenu" text="Record from mic" HBox.hgrow="ALWAYS">
                <HBox.margin>
                   <Insets left="15.0" right="15.0" />
                </HBox.margin>
@@ -87,7 +79,7 @@
       </VBox>
       <HBox alignment="CENTER_RIGHT" prefHeight="100.0" prefWidth="200.0">
          <children>
-            <Button fx:id="closeButton" mnemonicParsing="false" style="-fx-background-color: #234566; -fx-border-color: black;" text="Close" textFill="#f8f8f8">
+            <Button fx:id="closeButton" mnemonicParsing="false" styleClass="buttonMenu" text="Close">
                <HBox.margin>
                   <Insets right="10.0" />
                </HBox.margin>

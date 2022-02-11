@@ -1,0 +1,15 @@
+.buttonMenu {
+    -fx-text-fill: #dee0ff;
+    -fx-background-color:  #234566;
+    -fx-border-color:  #0d1a26;
+    -fx-border-width: 2;
+}
+
+.buttonMenu:hover {
+    -fx-background-color: #235075;
+    -fx-border-color: #0d1a40;
+}
+
+.buttonMenu:pressed{
+    -fx-background-color: #17364f;
+}

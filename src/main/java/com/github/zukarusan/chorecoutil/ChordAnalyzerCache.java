@@ -19,9 +19,9 @@ public class ChordAnalyzerCache implements Closeable{
     private final RandomAccessFile byteCache;
 
     private final static int _DEFAULT_BUFFER_SIZE_ = 1024 * 16;
-    private final AudioDispatcher dispatcher;
+    private final AudioDispatcher chordDispatcher, byteDispatcher;
     private final List<FileController.Segment> SEGMENTS_CACHE;
-    private final Thread runner;
+    private final Thread chordRunner, byteRunner;
     private long totalBytes;
     private boolean isFinished;
 
@@ -42,7 +42,8 @@ public class ChordAnalyzerCache implements Closeable{
         SEGMENTS_CACHE = new LinkedList<>();
 
         try {
-            dispatcher = AudioDispatcherFactory.fromFile(audio, bufferSize, bufferSize/2);
+            chordDispatcher = AudioDispatcherFactory.fromFile(audio, bufferSize, bufferSize/2);
+            byteDispatcher = AudioDispatcherFactory.fromFile(audio, bufferSize, 0);
             loBuffer = new PipedOutputStream();
             liBuffer = new PipedInputStream(loBuffer);
             chordLinker = new BufferedReader(new InputStreamReader(liBuffer));
@@ -53,15 +54,16 @@ public class ChordAnalyzerCache implements Closeable{
             throw new IllegalStateException("Unsupported audio file", e);
         }
 
-        ChordProcessor segmentProcessor = new ChordProcessor(dispatcher.getFormat().getSampleRate(), bufferSize, loBuffer){
+        ChordProcessor segmentProcessor = new ChordProcessor(chordDispatcher.getFormat().getSampleRate(), bufferSize, loBuffer){
             @Override
-            synchronized public boolean process(AudioEvent audioEvent) {
+            public boolean process(AudioEvent audioEvent) {
+                double from = audioEvent.getTimeStamp();
+                audioEvent.setBytesProcessing(audioEvent.getBufferSize() << 2);
+                double until = audioEvent.getEndTimeStamp();
                 if (super.process(audioEvent)) {
                     try {
                         String chord = chordLinker.readLine();
                         if (chord == null) return false;
-                        double from = audioEvent.getTimeStamp();
-                        double until = audioEvent.getEndTimeStamp();
                         SEGMENTS_CACHE.add(new FileController.Segment(from, until, chord));
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -73,12 +75,16 @@ public class ChordAnalyzerCache implements Closeable{
             }
 
             @Override
-            synchronized public void processingFinished() {
+            public void processingFinished() {
                 super.processingFinished();
                 try {
-                    loBuffer.close();
-                    liBuffer.close();
-                    chordLinker.close();
+                    synchronized (chordDispatcher) {
+                        loBuffer.close();
+                        liBuffer.close();
+                        chordLinker.close();
+                        close();
+                        chordDispatcher.notify();
+                    }
                 } catch (IOException e) {
                     throw new IllegalStateException("Couldn't close cache", e);
                 }
@@ -91,11 +97,7 @@ public class ChordAnalyzerCache implements Closeable{
             public boolean process(AudioEvent audioEvent) {
                 try {
                     byteCache.write(audioEvent.getByteBuffer());
-                    // TODO: Check if a sample consists of 1 float value. so is it 4 byte or more?
                     totalBytes += (long) audioEvent.getBufferSize() << 2;
-//                    if (audioEvent.getByteBuffer().length >> 2 == bufferSize) {
-//                        System.out.println("Check buffer");
-//                    }
                 } catch (IOException e) {
                     e.printStackTrace();
                     return false;
@@ -105,27 +107,26 @@ public class ChordAnalyzerCache implements Closeable{
 
             @Override
             public void processingFinished() {
-                try {
-                    synchronized (dispatcher) {
-                        isFinished = true;
+                synchronized (byteDispatcher) {
+                    isFinished = true;
+                    try {
                         byteCache.close();
-                        segmentProcessor.close();
-                        dispatcher.notify();
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
-//                    dispatcher.stop();
-//                    runner.stop();
-                } catch (IOException e) {
-                    throw new IllegalStateException("Couldn't close cache", e);
+                    byteDispatcher.notify();
                 }
             }
         };
 
-        dispatcher.addAudioProcessor(segmentProcessor);
-        dispatcher.addAudioProcessor(byteProcessor);
+        chordDispatcher.addAudioProcessor(segmentProcessor);
+        byteDispatcher.addAudioProcessor(byteProcessor);
 
         isFinished = false;
-        runner = new Thread(dispatcher, "CACHE_RUNNER");
-        runner.start();
+        chordRunner = new Thread(chordDispatcher, "CACHE_CHORD_RUNNER");
+        byteRunner = new Thread(byteDispatcher, "CACHE_BYTE_RUNNER");
+        chordRunner.start();
+        byteRunner.start();
     }
 
     public List<FileController.Segment> getSegments() {
@@ -134,11 +135,22 @@ public class ChordAnalyzerCache implements Closeable{
     }
 
     public void waitForProcessFinished() throws InterruptedException {
-        if (isFinished) return;
 //        runner.wait();
-        synchronized (dispatcher) {
-            dispatcher.wait();
-            runner.interrupt();
+        synchronized (chordDispatcher) {
+            if (isFinished) {
+                chordRunner.interrupt();
+                return;
+            }
+            chordDispatcher.wait();
+            chordRunner.interrupt();
+        }
+        synchronized (byteDispatcher) {
+            if (isFinished) {
+                byteRunner.interrupt();
+                return;
+            }
+            byteDispatcher.wait();
+            byteRunner.interrupt();
         }
         System.out.println("Process Finished");
     }
@@ -176,8 +188,10 @@ public class ChordAnalyzerCache implements Closeable{
 
     @Override
     public void close() {
-        dispatcher.stop();
-        runner.stop();
+        byteDispatcher.stop();
+        chordDispatcher.stop();
+        chordRunner.stop();
+        byteRunner.stop();
         try {
             byteCache.close();
         } catch (IOException e) {

@@ -9,8 +9,11 @@ import com.github.zukarusan.chorecoutil.model.ChordsVisualComponent;
 import javafx.event.Event;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
+import javafx.scene.control.MenuItem;
+import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 
 import javax.sound.sampled.UnsupportedAudioFileException;
 import java.io.*;
@@ -149,6 +152,7 @@ public class FileController implements ChordViewController {
             throw new IllegalStateException("Error file read", e);
         }
 
+        // TODO: check if correctly parsed the bytes, check the byte order or check the sample sections
         FileChannel channel;
         try (RandomAccessFile fSamples = new RandomAccessFile(savedChords, "r")) {
             fSamples.readLine();
@@ -193,18 +197,21 @@ public class FileController implements ChordViewController {
 
     private ChordsVisualComponent chordVisual;
 
-    @FXML
-    Canvas chordCanvas;
-    
+    @FXML Canvas chordCanvas;
+    @FXML MenuItem close;
+    @FXML VBox mainBox;
+
     @FXML
     public void update(Event event) {
         chordVisual.drawOn(chordCanvas);
     }
 
     @FXML
-    public void initialize(Event event) {
+    public void initialize() {
+        chordCanvas.widthProperty().bind(mainBox.widthProperty());
         chordVisual = new ChordsVisualComponent(segments);
         chordVisual.drawOn(chordCanvas);
+        close.setOnAction(this::close);
     }
 
     @FXML

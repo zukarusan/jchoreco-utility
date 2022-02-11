@@ -11,7 +11,7 @@ public class RecordController implements ChordViewController {
     }
 
     @Override
-    public void initialize(Event event) {
+    public void initialize() {
 
     }
 
