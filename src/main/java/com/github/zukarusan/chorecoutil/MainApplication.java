@@ -16,7 +16,7 @@ public class MainApplication extends Application {
     @Override
     public void start(Stage stage) {
         // TODO: different stage for viewer and menu to apply (un)decorated settings
-        stage.setResizable(false);
+//        stage.setResizable(false);
         MenuController menu = new MenuController(stage, this.getClass());
         menu.showWithRecentFiles();
     }

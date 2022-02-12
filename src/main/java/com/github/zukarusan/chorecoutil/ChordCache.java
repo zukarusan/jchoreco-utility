@@ -2,40 +2,37 @@ package com.github.zukarusan.chorecoutil;
 
 import be.tarsos.dsp.AudioDispatcher;
 import be.tarsos.dsp.AudioEvent;
-import be.tarsos.dsp.AudioProcessor;
 import be.tarsos.dsp.io.jvm.AudioDispatcherFactory;
 import com.github.zukarusan.chorecoutil.controller.FileController;
+import com.github.zukarusan.chorecoutil.controller.exception.UnsupportedChordFileException;
 import com.github.zukarusan.jchoreco.system.ChordProcessor;
 
 import javax.sound.sampled.UnsupportedAudioFileException;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.util.LinkedList;
 import java.util.List;
 
-public class ChordAnalyzerCache implements Closeable{
-    File BYTE_CACHE;
-    private final RandomAccessFile byteCache;
+public class ChordCache implements Closeable{
+    private final File audio;
+//    private final RandomAccessFile byteCache;
 
-    private final static int _DEFAULT_BUFFER_SIZE_ = 1024 * 16;
-    private final AudioDispatcher chordDispatcher, byteDispatcher;
+    private final static int DEFAULT_BUFFER_WRITE_SIZE = 1024 * 16;
+    private final AudioDispatcher chordDispatcher;//, byteDispatcher;
     private final List<FileController.Segment> SEGMENTS_CACHE;
-    private final Thread chordRunner, byteRunner;
-    private long totalBytes;
+    private final Thread chordRunner;//, byteRunner;
+//    private long totalBytes;
     private boolean isFinished;
+    private boolean hasAudioCache = false;
 
-    public ChordAnalyzerCache(File audio) {
-        this(audio, _DEFAULT_BUFFER_SIZE_);
+    public ChordCache(File audio) {
+        this(audio, DEFAULT_BUFFER_WRITE_SIZE);
     }
 
-    public ChordAnalyzerCache(File audio, int bufferSize) {
-        BYTE_CACHE = new File(".cache_byte");
-
-        if (BYTE_CACHE.exists()) {
-            if (!BYTE_CACHE.delete()) throw new IllegalStateException("File is busy");
-        }
-
+    public ChordCache(File audio, int bufferSize) {
+        this.audio = audio;
         PipedOutputStream loBuffer;
         PipedInputStream liBuffer;
         BufferedReader chordLinker;
@@ -43,11 +40,9 @@ public class ChordAnalyzerCache implements Closeable{
 
         try {
             chordDispatcher = AudioDispatcherFactory.fromFile(audio, bufferSize, bufferSize/2);
-            byteDispatcher = AudioDispatcherFactory.fromFile(audio, bufferSize, 0);
             loBuffer = new PipedOutputStream();
             liBuffer = new PipedInputStream(loBuffer);
             chordLinker = new BufferedReader(new InputStreamReader(liBuffer));
-            byteCache = new RandomAccessFile(BYTE_CACHE, "rw");
         } catch (IOException e) {
             throw new IllegalStateException("Error loading audio file", e);
         } catch (UnsupportedAudioFileException e) {
@@ -79,6 +74,7 @@ public class ChordAnalyzerCache implements Closeable{
                 super.processingFinished();
                 try {
                     synchronized (chordDispatcher) {
+                        isFinished = true;
                         loBuffer.close();
                         liBuffer.close();
                         chordLinker.close();
@@ -91,42 +87,10 @@ public class ChordAnalyzerCache implements Closeable{
             }
         };
 
-        totalBytes = 0;
-        AudioProcessor byteProcessor = new AudioProcessor() {
-            @Override
-            public boolean process(AudioEvent audioEvent) {
-                try {
-                    byteCache.write(audioEvent.getByteBuffer());
-                    totalBytes += (long) audioEvent.getBufferSize() << 2;
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    return false;
-                }
-                return true;
-            }
-
-            @Override
-            public void processingFinished() {
-                synchronized (byteDispatcher) {
-                    isFinished = true;
-                    try {
-                        byteCache.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                    byteDispatcher.notify();
-                }
-            }
-        };
-
         chordDispatcher.addAudioProcessor(segmentProcessor);
-        byteDispatcher.addAudioProcessor(byteProcessor);
-
         isFinished = false;
         chordRunner = new Thread(chordDispatcher, "CACHE_CHORD_RUNNER");
-        byteRunner = new Thread(byteDispatcher, "CACHE_BYTE_RUNNER");
         chordRunner.start();
-        byteRunner.start();
     }
 
     public List<FileController.Segment> getSegments() {
@@ -135,7 +99,6 @@ public class ChordAnalyzerCache implements Closeable{
     }
 
     public void waitForProcessFinished() throws InterruptedException {
-//        runner.wait();
         synchronized (chordDispatcher) {
             if (isFinished) {
                 chordRunner.interrupt();
@@ -144,59 +107,66 @@ public class ChordAnalyzerCache implements Closeable{
             chordDispatcher.wait();
             chordRunner.interrupt();
         }
-        synchronized (byteDispatcher) {
-            if (isFinished) {
-                byteRunner.interrupt();
-                return;
-            }
-            byteDispatcher.wait();
-            byteRunner.interrupt();
-        }
         System.out.println("Process Finished");
     }
 
-    public void overwriteInto(FileChannel channel, boolean toClose) throws IOException {
-        if (!isFinished) throw new IllegalAccessError("Process not yet finished");
-        channel.truncate(channel.position());
-        int len = _DEFAULT_BUFFER_SIZE_ << 2;  // check if this float sample
-        byte[] buffer = new byte[len];
-        ByteBuffer wrapped = ByteBuffer.wrap(buffer);
-        byteCache.seek(0);
-        FileChannel cacheChannel = byteCache.getChannel();
-
-        int readTotal;
-        long readSum = 0;
-        while((readTotal = cacheChannel.read(wrapped)) != -1) {
-            if (readTotal == len)
-                channel.write(wrapped);
-            else
-                channel.write(ByteBuffer.wrap(buffer, 0, readTotal));
-            wrapped.clear();
-            readSum += readTotal;
+    public void mergeAudioWith(FileChannel chordChannel, boolean toClose) {
+        try (FileChannel audioChannel = new FileInputStream(audio).getChannel()) {
+            for (long count = Files.size(audio.toPath()); count > 0L;) {
+                final long transferred = audioChannel.transferTo(
+                        audioChannel.position(), count, chordChannel);
+                audioChannel.position(audioChannel.position() + transferred);
+                count -= transferred;
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Error in merging audio with file channel: ", e);
         }
-
-        cacheChannel.close();
-        byteCache.seek(0);
-        if (toClose) channel.close();
-        wrapped.clear();
     }
 
-    public long getTotalBytes() {
-        if (!isFinished) throw new IllegalAccessError("Process not yet finished");
-        return totalBytes;
+    public static ChordCache fromSavedChord(File chordFile) throws UnsupportedChordFileException {
+        File audio = new File("temp_audio.wav");
+        if (audio.exists()) if (!audio.delete()) throw new IllegalAccessError("File cache is busy");
+
+        // TODO: check if correctly parsed the bytes, check the byte order or check the sample sections
+        try (RandomAccessFile rafChord = new RandomAccessFile(chordFile, "r")) {
+            String row = rafChord.readLine();
+            if (!row.equals("SEGMENTS")) throw new UnsupportedChordFileException();
+            row = rafChord.readLine();
+            long totalSegment = Long.parseLong(row);
+            for(int i = 0; i < totalSegment; i++) {
+                rafChord.readLine();
+            }
+            String aHeader = "AUDIO";
+            if (aHeader.equals(rafChord.readLine())) {
+                try (FileChannel rafChordChannel = rafChord.getChannel();
+                     FileChannel audioChannel = new RandomAccessFile(audio, "rw").getChannel()) {
+                    for (long count = Files.size(chordFile.toPath())-rafChordChannel.position(); count > 0L;) {
+                        final long transferred = rafChordChannel.transferTo(
+                                rafChordChannel.position(), count, audioChannel);
+                        rafChordChannel.position(rafChordChannel.position() + transferred);
+                        count -= transferred;
+                    }
+                }
+            }
+            else {
+                throw new IllegalStateException("Cannot read float buffer");
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Cannot load audio cache file", e);
+        }
+        ChordCache cache = new ChordCache(audio);
+        cache.hasAudioCache = true;
+        return cache;
+    }
+
+    public File getSourceAudio() {
+        return audio;
     }
 
     @Override
     public void close() {
-        byteDispatcher.stop();
         chordDispatcher.stop();
         chordRunner.stop();
-        byteRunner.stop();
-        try {
-            byteCache.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        if (!BYTE_CACHE.delete()) throw new IllegalAccessError("File is busy");
+        if (hasAudioCache) if (!audio.delete()) throw new IllegalAccessError("WARNING: Cannot delete audio cache, file is busy");
     }
 }

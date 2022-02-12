@@ -12,7 +12,7 @@
         <menus>
           <Menu mnemonicParsing="false" text="File">
             <items>
-                  <MenuItem mnemonicParsing="false" text="Save" />
+                  <MenuItem fx:id="saveMenuItem" mnemonicParsing="false" text="Save" />
                   <MenuItem mnemonicParsing="false" text="Save As..." />
                   <SeparatorMenuItem mnemonicParsing="false" />
                   <MenuItem mnemonicParsing="false" text="Record new" />
@@ -31,7 +31,7 @@
       </MenuBar>
       <ToolBar prefHeight="40.0" prefWidth="200.0">
         <items>
-          <Button mnemonicParsing="false" text="Play">
+          <Button fx:id="playButton" mnemonicParsing="false" text="Play">
                <padding>
                   <Insets bottom="10.0" left="20.0" right="20.0" top="10.0" />
                </padding>
@@ -43,6 +43,10 @@
             </Button>
         </items>
       </ToolBar>
-      <Canvas fx:id="chordCanvas" height="530.0" width="800.0" />
+      <Pane fx:id="canvasPane" prefHeight="200.0" prefWidth="200.0" VBox.vgrow="ALWAYS">
+         <children>
+            <Canvas fx:id="chordCanvas" height="530.0" width="800.0" />
+         </children>
+      </Pane>
    </children>
 </VBox>

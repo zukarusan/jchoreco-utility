@@ -4,12 +4,12 @@ import com.github.zukarusan.chorecoutil.controller.FileController;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
-import javafx.scene.paint.Paint;
 import javafx.scene.shape.Rectangle;
 
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.Callable;
 
 public class ChordsVisualComponent {
     public static final int[] color_value = {0, 255/2, 255};
@@ -17,6 +17,8 @@ public class ChordsVisualComponent {
     private final HashMap<String, Color> charts;
     private final double durationSeconds;
     private final double overlapDur;
+    private final Canvas canvas;
+    private final GraphicsContext gc;
 
     public static Color getColorBase3(int value) {
         assert value >= 0;
@@ -27,8 +29,10 @@ public class ChordsVisualComponent {
         return Color.rgb(rgb[0], rgb[1], rgb[2]);
     }
 
-    public ChordsVisualComponent(List<FileController.Segment> segments) {
+    public ChordsVisualComponent(Canvas canvas, List<FileController.Segment> segments) {
         this.charts = new HashMap<>();
+        this.gc = canvas.getGraphicsContext2D();
+        this.canvas = canvas;
         filteredSegments = new LinkedList<>();
 
         durationSeconds = segments.get(segments.size()-1).until;
@@ -64,19 +68,22 @@ public class ChordsVisualComponent {
     }
 
     private List<Rectangle> rect_buffer = null;
-    private double rect_h_buffer = -1;
-    private double cont_w_buffer = -1;
-    public void drawOn(Canvas canvas) {
-        GraphicsContext gc = canvas.getGraphicsContext2D();
-        double rect_height = canvas.getHeight()/3;
-        double width = canvas.getWidth();
-        double y_rect = (canvas.getHeight()/2)-(rect_height/2);
-        double overlapLen = overlapDur * getPixelPerSecond(width);
-        if (!(rect_height == rect_h_buffer && width == cont_w_buffer) || rect_buffer == null) {
+    double rect_height = -1;
+    double width = -1;
+    double height = -1;
+    double y_rect;
+    double overlapLen;
+    public void draw() {
+        if ((height != canvas.getHeight() || width != canvas.getWidth()) || rect_buffer == null) {
+            rect_height = canvas.getHeight()/3;
+            width = canvas.getWidth();
+            y_rect = (canvas.getHeight()/2)-(rect_height/2);
+            overlapLen = overlapDur * getPixelPerSecond(width);
             rect_buffer = getRectangles(rect_height, width);
-            rect_h_buffer = rect_height;
-            cont_w_buffer = width;
         }
+
+        // clear canvas
+        gc.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
 
         // border fill
         double x = 0;
@@ -93,6 +100,15 @@ public class ChordsVisualComponent {
             x += rect.getWidth();
         }
     }
+
+    public final Callable<Double> getRectYEnd = new Callable<>() {
+        @Override
+        public Double call() {
+            synchronized (canvas) {
+                return y_rect+rect_height;
+            }
+        }
+    };
 
     public double getDurationSeconds() {return durationSeconds;}
 

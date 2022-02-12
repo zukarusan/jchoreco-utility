@@ -1,22 +1,22 @@
 package com.github.zukarusan.chorecoutil.controller;
 
 import com.github.zukarusan.chorecoutil.MainApplication;
+import com.github.zukarusan.chorecoutil.controller.exception.UnsupportedChordFileException;
 import javafx.application.Platform;
+import javafx.collections.ObservableList;
 import javafx.event.Event;
-import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
-import javafx.scene.layout.Background;
-import javafx.scene.paint.Color;
 import javafx.stage.*;
 
 import javax.sound.sampled.UnsupportedAudioFileException;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.util.concurrent.CountDownLatch;
 
 public class MenuController {
 
@@ -31,7 +31,8 @@ public class MenuController {
     public URL recentFiles = null;
 
     FileChooser fileChooser = new FileChooser();
-    FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("Audio WAV files (*.wav)", "*.wav");
+    FileChooser.ExtensionFilter wavFilter = new FileChooser.ExtensionFilter("Audio WAV files (*.wav)", "*.wav");
+    FileChooser.ExtensionFilter choFilter = new FileChooser.ExtensionFilter("Jchoreco chord (*.cho)", "*.cho");
 
     private Scene viewScene;
     private final Scene menu;
@@ -45,6 +46,32 @@ public class MenuController {
     private final double max_h;
     private final double max_w;
 
+    public static class LoadingWaiter implements Runnable {
+        private boolean loading = true;
+        final CountDownLatch waitLatch;
+
+        public void setFinished() {
+            this.loading = false;
+            waitLatch.countDown();
+        }
+
+        public LoadingWaiter() {
+            waitLatch = new CountDownLatch(1);
+        }
+
+        @Override
+        public void run() {
+            synchronized (waitLatch) {
+                if (!loading) return;
+                try {
+                    waitLatch.await();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
     public MenuController(Stage primary, Class<? extends MainApplication> resourceGetter) {
         try {
             this.primary = primary;
@@ -55,7 +82,9 @@ public class MenuController {
             assert urlMenu != null;
 
             fileChooser.setTitle("Choose audio files");
-            fileChooser.getExtensionFilters().add(extFilter);
+            ObservableList<FileChooser.ExtensionFilter> filter = fileChooser.getExtensionFilters();
+            filter.add(wavFilter);
+            filter.add(choFilter);
 
             FXMLLoader loader = new FXMLLoader(urlMenu);
             loader.setClassLoader(classLoader);
@@ -63,7 +92,7 @@ public class MenuController {
             menu = new Scene(loader.load(), 500, 400);
             menu.getStylesheets().add(urlStyleSheet.toExternalForm());
 
-            primary.initStyle(StageStyle.UNDECORATED);
+//            primary.initStyle(StageStyle.UNDECORATED);
             primary.setScene(menu);
             max_h = Screen.getPrimary().getBounds().getHeight();
             max_w = Screen.getPrimary().getBounds().getWidth();
@@ -102,11 +131,13 @@ public class MenuController {
             File file = fileChooser.showOpenDialog(primary);
             if (file == null) return;
 //            primary.hide();  // A.... bug? or just use new stage or new application
-            fileController = new FileController(primary, file, this::openMenuBack);
+            LoadingWaiter initWaiter = new LoadingWaiter();
+            fileController = new FileController(primary, file, this::openMenuBack, initWaiter);
             openViewer(urlFiles, fileController);
+            initWaiter.setFinished();
         } catch (IOException e) {
             throw new IllegalStateException("Cannot create controller", e);
-        } catch (UnsupportedAudioFileException e) {
+        } catch (UnsupportedChordFileException | UnsupportedAudioFileException e) {
             throw new IllegalStateException("Unsupported file", e);
         }
     }
