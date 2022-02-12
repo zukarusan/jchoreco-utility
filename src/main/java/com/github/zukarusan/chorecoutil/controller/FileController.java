@@ -2,8 +2,9 @@ package com.github.zukarusan.chorecoutil.controller;
 
 import com.github.zukarusan.chorecoutil.ChordCache;
 import com.github.zukarusan.chorecoutil.controller.exception.UnsupportedChordFileException;
-import com.github.zukarusan.chorecoutil.model.ChordsVisualComponent;
+import com.github.zukarusan.chorecoutil.component.ChordsVisualComponent;
 
+import com.github.zukarusan.chorecoutil.component.PointerComponent;
 import javafx.application.Platform;
 import javafx.event.Event;
 import javafx.fxml.FXML;
@@ -15,10 +16,10 @@ import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 import javax.sound.sampled.UnsupportedAudioFileException;
 import java.io.*;
-import java.net.URI;
 import java.nio.channels.FileChannel;
 import java.util.LinkedList;
 import java.util.List;
@@ -34,7 +35,6 @@ public class FileController implements ChordViewController {
 
     private File chordBuffer;
     private final ChordCache cacheChord;
-    private boolean isSaved;
     private boolean isPlaying;
 
     private static final int bufferSize = 1024 * 16;
@@ -89,15 +89,12 @@ public class FileController implements ChordViewController {
         this.chordBuffer = chordSaved;
         this.mediaPlayer = mediaPlayer;
 
-        // validate
-        if (totalSegment != segments.size()) { // TODO: more validation please
+        if (totalSegment != segments.size()) {
             throw new IllegalStateException("Validation error");
         }
     }
 
     private void openFromAudio(File audio) {
-        this.isSaved = false;
-
         synchronized (cacheChord) {
             try {
                 cacheChord.waitForProcessFinished();
@@ -115,36 +112,14 @@ public class FileController implements ChordViewController {
     }
 
     private void openFromSaved(File savedChords) throws FileNotFoundException, UnsupportedChordFileException {
-        isSaved = true;
-        BufferedReader reader = new BufferedReader(new FileReader(savedChords));
-        String row;
-        long totalSegment;
-        List<Segment> segments = new LinkedList<>();
-        try {
-            row = reader.readLine();
-            if (!row.equals("SEGMENTS")) throw new UnsupportedChordFileException("Cannot read segments");
-            row = reader.readLine();
-            totalSegment = Long.parseLong(row);
-            for (int i = 0; i < totalSegment; i++) {
-                row = reader.readLine();
-                String[] parse = row.split(" ");
-                if (parse.length != 3)
-                    continue;
-                segments.add(new Segment(Float.parseFloat(parse[0]), Float.parseFloat(parse[1]), parse[2]));
-            }
-            reader.close();
-        } catch (IOException e) {
-            throw new IllegalStateException("Cannot read header cache file", e);
-        } catch (IndexOutOfBoundsException e) {
-            throw new IllegalStateException("Error file read", e);
-        }
         MediaPlayer player;
         if (cacheChord != null) {
             String path = cacheChord.getSourceAudio().toURI().toString();
             player = new MediaPlayer(new Media(path));
         } else throw new FileNotFoundException("Cannot find audio in chord file "+ savedChords.getName());
 
-        setProperties(segments, totalSegment, savedChords, player);
+        List<Segment> segments = cacheChord.getSegments();
+        setProperties(segments, segments.size(), savedChords, player);
     }
 
     @FXML
@@ -160,11 +135,13 @@ public class FileController implements ChordViewController {
     }
 
     private ChordsVisualComponent chordVisual;
+    private PointerComponent pointer;
 
     @FXML Canvas chordCanvas;
     @FXML MenuItem close;
     @FXML Pane canvasPane;
     @FXML Button playButton;
+    @FXML Button stopButton;
     @FXML MenuItem saveMenuItem;
 
     @FXML
@@ -175,38 +152,51 @@ public class FileController implements ChordViewController {
         chordCanvas.widthProperty().addListener(evt -> chordVisual.draw());
         chordCanvas.heightProperty().addListener(evt -> chordVisual.draw());
 
-        new Thread(() -> {
-            initLoading.run();
-            Platform.runLater(() -> chordVisual.draw());
-        }).start();
 
         close.setOnAction(this::close);
         playButton.setOnAction(this::start);
-        saveMenuItem.setOnAction(this::save);
+        stopButton.setOnAction(this::stop);
+        saveMenuItem.setOnAction(this::saveAs);
+
+        mediaPlayer.setOnEndOfMedia(() -> stop(null));
+        mediaPlayer.setOnPlaying(() -> playButton.setDisable(true));
+
+        pointer = new PointerComponent(chordCanvas, chordVisual.getRectYEnd);
+        mediaPlayer.currentTimeProperty().addListener(evt -> {
+            pointer.setProgress(mediaPlayer.getCurrentTime().toMillis()/totalTime);
+            pointer.updateTransX();
+        });
+
+        new Thread(() -> {
+            initLoading.run();
+            Platform.runLater(() -> {
+                chordVisual.draw();
+                pointer.linkContainer(canvasPane);
+                pointer.updateX();
+            });
+        }).start();
     }
 
 
+    double totalTime;
     @FXML
     public void start(Event event) {
+        if (isPlaying) return;
         isPlaying = true;
         mediaPlayer.play();
+        totalTime = mediaPlayer.getTotalDuration().toMillis();
     }
 
     @FXML
     public void stop(Event event) {
-
+        if (!isPlaying) return;
+        isPlaying = false;
+        mediaPlayer.seek(Duration.millis(0));
+        mediaPlayer.stop();
+        playButton.setDisable(false);
     }
 
-    @FXML
-    public void save(Event event) {
-        if (isSaved) {
-            System.out.println("Chords already saved");
-            return;
-        }
-        if (this.chordBuffer == null) {
-            saveAs(null);
-            return;
-        }
+    public void save() {
         BufferedWriter writer;
         try {
             if (chordBuffer.exists()) {
@@ -237,7 +227,6 @@ public class FileController implements ChordViewController {
         } catch (IOException e) {
             throw new IllegalStateException("Cannot read header cache file", e);
         }
-        isSaved = true;
     }
 
     @FXML
@@ -245,8 +234,7 @@ public class FileController implements ChordViewController {
         File savedFile = fileChooser.showSaveDialog(stage);
         if (savedFile == null) return;
         this.chordBuffer = savedFile;
-        isSaved = false;
-        save(null);
+        save();
     }
 
 }
