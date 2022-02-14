@@ -1,6 +1,7 @@
 package com.github.zukarusan.chorecoutil.controller;
 
 import com.github.zukarusan.chorecoutil.MainApplication;
+import com.github.zukarusan.chorecoutil.RecentFilesFactory;
 import com.github.zukarusan.chorecoutil.controller.exception.UnsupportedChordFileException;
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
@@ -10,12 +11,21 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.VBox;
 import javafx.stage.*;
 
 import javax.sound.sampled.UnsupportedAudioFileException;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 public class MenuController {
@@ -28,7 +38,6 @@ public class MenuController {
     public URL urlFiles;
     public URL urlRecord;
     public URL urlStyleSheet;
-    public URL recentFiles = null;
 
     FileChooser fileChooser = new FileChooser();
     FileChooser.ExtensionFilter wavFilter = new FileChooser.ExtensionFilter("Audio WAV files (*.wav)", "*.wav");
@@ -42,6 +51,7 @@ public class MenuController {
     private final ClassLoader classLoader;
     FileController fileController;
     RecordController recordController;
+    RecentFileController recentFileController;
 
     private final double max_h;
     private final double max_w;
@@ -78,8 +88,11 @@ public class MenuController {
             classLoader = resourceGetter.getClassLoader();
             urlMenu = resourceGetter.getResource("menu-view.fxml");
             urlFiles = resourceGetter.getResource("choreco-main-view.fxml");
+            urlRecord = resourceGetter.getResource("choreco-record-view.fxml");
             urlStyleSheet = resourceGetter.getResource("style.css");
             assert urlMenu != null;
+
+            recentFileController = new RecentFileController(resourceGetter);
 
             fileChooser.setTitle("Choose audio files");
             ObservableList<FileChooser.ExtensionFilter> filter = fileChooser.getExtensionFilters();
@@ -101,17 +114,54 @@ public class MenuController {
         }
     }
 
+    final private static class RecentFileController {
+        public URL recentFiles;
+
+        FXMLLoader recentLoader;
+        List<HBox> recentBoxes;
+        public RecentFileController(Class<? extends MainApplication> resourceGetter) {
+            recentFiles = resourceGetter.getResource("recent-files-subview.fxml");
+            recentBoxes = new ArrayList<>();
+        }
+
+        public boolean populate(Pane node) {
+            List<File> files = RecentFilesFactory.getRecentFiles();
+            recentBoxes = new ArrayList<>();
+            if (files.isEmpty()) return false;
+            try {
+                for (File file : files) {
+                    HBox box = new FXMLLoader(recentFiles).load();
+                    Label labelName = (Label) box.getChildren().get(0);
+                    Label labelPath = (Label) box.getChildren().get(1);
+                    labelName.setText(file.getName());
+                    labelPath.setText(file.getPath());
+                    box.getStyleClass().add("boxRecent");
+                    recentBoxes.add(box);
+                    node.getChildren().add(box);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return true;
+        }
+    }
+
     @FXML protected Button closeButton;
     @FXML protected Button fromFile;
+    @FXML protected Button fromMic;
+    @FXML protected VBox recentCont;
+    @FXML protected HBox noneBox;
 
     @FXML
     public void initialize() {
         closeButton.setStyle("");
         closeButton.setOnAction(this::closeMenu);
-        fromFile.setOnAction(this::openFromFile);
+        fromFile.setOnAction(this::openWithDialog);
+        fromMic.setOnAction(this::openFromMic);
 
         primary.setOnCloseRequest(t -> {
-            fileController.close(null);
+            if (fileController != null) fileController.close(null);
+            if (recordController != null) recordController.close(null);
             Platform.exit();
             System.exit(0);
         });
@@ -126,11 +176,21 @@ public class MenuController {
     }
 
     @FXML
-    public void openFromFile(Event event) {
-        try {
-            File file = fileChooser.showOpenDialog(primary);
-            if (file == null) return;
+    public void openFromMic(Event event) {
+        recordController = new RecordController(primary, this::openMenuBack, this::openFromFile);
+        openViewer(urlRecord, recordController);
+    }
+
+    @FXML
+    public void openWithDialog(Event event) {
+        File file = fileChooser.showOpenDialog(primary);
+        if (file == null) return;
 //            primary.hide();  // A.... bug? or just use new stage or new application
+        openFromFile(file);
+    }
+
+    public void openFromFile(File file) {
+        try {
             LoadingWaiter initWaiter = new LoadingWaiter();
             fileController = new FileController(primary, file, this::openMenuBack, initWaiter);
             openViewer(urlFiles, fileController);
@@ -148,7 +208,7 @@ public class MenuController {
     double Y_buffer;
     protected void openViewer(URL viewUrl, ChordViewController controller) {
         if (isOpen) {
-            throw new IllegalCallerException("Is still open");
+            viewScene = null;
         }
         try {
             X_buffer = primary.getX();
@@ -160,6 +220,7 @@ public class MenuController {
             loader.setController(controller);
             Parent root = loader.load();
             viewScene = new Scene(root, WIDTH, HEIGHT);
+            viewScene.getStylesheets().add(urlStyleSheet.toExternalForm());
             isOpen = true;
             primary.setScene(viewScene);
 //            primary.show();
@@ -174,6 +235,18 @@ public class MenuController {
 
     public void showWithRecentFiles() {
         /* show code */
+        recentCont.getChildren().remove(noneBox);
+        for (HBox box : recentFileController.recentBoxes) {
+            recentCont.getChildren().remove(box);
+        }
+        if (!recentFileController.populate(recentCont)) recentCont.getChildren().add(noneBox);
+        for (HBox box : recentFileController.recentBoxes) {
+            Label path = (Label) box.getChildren().get(1);
+            box.setOnMouseClicked(
+                evt -> openFromFile(new File(path.getText()))
+            );
+
+        }
         primary.show();
     }
 
@@ -206,7 +279,7 @@ public class MenuController {
             primary.setScene(menu);
             primary.setX(X_buffer);
             primary.setY(Y_buffer);
-            primary.show();
+            showWithRecentFiles();
         }
     }
 }

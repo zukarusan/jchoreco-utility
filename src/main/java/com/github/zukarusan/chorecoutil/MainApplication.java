@@ -2,14 +2,7 @@ package com.github.zukarusan.chorecoutil;
 
 import com.github.zukarusan.chorecoutil.controller.MenuController;
 import javafx.application.Application;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Scene;
 import javafx.stage.Stage;
-import javafx.stage.StageStyle;
-
-import java.io.IOException;
-import java.net.URL;
-import java.util.List;
 
 public class MainApplication extends Application {
 

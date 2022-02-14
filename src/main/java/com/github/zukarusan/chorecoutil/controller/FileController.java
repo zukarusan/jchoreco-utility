@@ -1,6 +1,7 @@
 package com.github.zukarusan.chorecoutil.controller;
 
 import com.github.zukarusan.chorecoutil.ChordCache;
+import com.github.zukarusan.chorecoutil.RecentFilesFactory;
 import com.github.zukarusan.chorecoutil.controller.exception.UnsupportedChordFileException;
 import com.github.zukarusan.chorecoutil.component.ChordsVisualComponent;
 
@@ -10,10 +11,14 @@ import javafx.event.Event;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.layout.Pane;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
@@ -21,6 +26,7 @@ import javafx.util.Duration;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import java.io.*;
 import java.nio.channels.FileChannel;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -59,6 +65,9 @@ public class FileController implements ChordViewController {
         this.fileChooser.getExtensionFilters().add(extFilter);
         this.initLoading = init;
         String ext = getFileExtension(file);
+        RecentFilesFactory.prependRecentFile(file);
+
+        waiter = new MenuController.LoadingWaiter();
         if (ext.equals(".cho")) {
             cacheChord = ChordCache.fromSavedChord(file);
             openFromSaved(file);
@@ -73,7 +82,7 @@ public class FileController implements ChordViewController {
     }
 
 
-    private static String getFileExtension(File file) {
+    public static String getFileExtension(File file) {
         String name = file.getName();
         int lastIndexOf = name.lastIndexOf(".");
         if (lastIndexOf == -1) {
@@ -94,6 +103,10 @@ public class FileController implements ChordViewController {
         }
     }
 
+    private Media media;
+    private Thread playerThread;
+    private final MenuController.LoadingWaiter waiter;
+
     private void openFromAudio(File audio) {
         synchronized (cacheChord) {
             try {
@@ -106,32 +119,46 @@ public class FileController implements ChordViewController {
         long totalSegment = segments.size();
 
         String path = audio.toURI().toString();
-        MediaPlayer player = new MediaPlayer(new Media(path));
+        media = new Media(path);
+        final MediaPlayer[] player = new MediaPlayer[1];
+        playerThread = new Thread(() -> {
+            player[0] = new MediaPlayer(media);
+            waiter.setFinished();
+        });
+        playerThread.start();
+        waiter.run();
 
-        setProperties(segments, totalSegment, null, player);
+        setProperties(segments, totalSegment, null, player[0]);
     }
 
     private void openFromSaved(File savedChords) throws FileNotFoundException, UnsupportedChordFileException {
-        MediaPlayer player;
+
+        final MediaPlayer[] player = new MediaPlayer[1];
         if (cacheChord != null) {
             String path = cacheChord.getSourceAudio().toURI().toString();
-            player = new MediaPlayer(new Media(path));
+            media = new Media(path);
+            playerThread = new Thread(() -> {
+                player[0] = new MediaPlayer(media);
+                waiter.setFinished();
+            });
+            playerThread.start();
+            waiter.run();
         } else throw new FileNotFoundException("Cannot find audio in chord file "+ savedChords.getName());
 
         List<Segment> segments = cacheChord.getSegments();
-        setProperties(segments, segments.size(), savedChords, player);
-    }
-
-    @FXML
-    public void open(Event event) {
+        setProperties(segments, segments.size(), savedChords, player[0]);
     }
 
     @FXML
     public void close(Event event) {
-        if (isPlaying) mediaPlayer.stop();
-        mediaPlayer.dispose();
-        cacheChord.close();
-        callback.run();
+        try {
+            mediaPlayer.stop();
+            playerThread.interrupt();
+            mediaPlayer.dispose();
+            cacheChord.close();
+        } finally {
+            callback.run();
+        }
     }
 
     private ChordsVisualComponent chordVisual;
@@ -143,15 +170,48 @@ public class FileController implements ChordViewController {
     @FXML Button playButton;
     @FXML Button stopButton;
     @FXML MenuItem saveMenuItem;
+    Text chordLabel;
+    Text nextLabel;
+    Text nextChordLabel;
 
     @FXML
     public void initialize() {
+        chordLabel = new Text();
+        nextLabel = new Text();
+        nextChordLabel = new Text();
+        chordLabel.setFont(Font.font("Lemon Regular"));
+        chordLabel.setStyle("-fx-font-size: 30;");
+        chordLabel.setStroke(Color.AQUA);
+        chordLabel.setStrokeWidth(1);
+        nextLabel.setFont(Font.font("Lemon Regular"));
+        nextLabel.setStyle("-fx-font-size: 25; -fx-fill: #d13328");
+        nextChordLabel.setFont(Font.font("Lemon Regular"));
+        nextChordLabel.setStyle("-fx-font-size: 20;");
+        nextChordLabel.setStroke(Color.BLUEVIOLET);
+        nextChordLabel.setStrokeWidth(1);canvasPane.getChildren().add(chordLabel);
+        canvasPane.getChildren().add(nextLabel);
+        canvasPane.getChildren().add(nextChordLabel);
+
         chordVisual = new ChordsVisualComponent(chordCanvas, segments);
+        filSeg = chordVisual.getFilteredSegments().toArray(new Segment[0]);
+        segSize = filSeg.length;
+        overlapDur = chordVisual.getOverlapDur();
+        charts = chordVisual.getChordColorMap();
+
         chordCanvas.widthProperty().bind(canvasPane.widthProperty());
         chordCanvas.heightProperty().bind(canvasPane.heightProperty());
-        chordCanvas.widthProperty().addListener(evt -> chordVisual.draw());
-        chordCanvas.heightProperty().addListener(evt -> chordVisual.draw());
-
+        chordCanvas.widthProperty().addListener(evt -> {
+            chordVisual.draw();
+            chordLabel.setLayoutX((chordCanvas.getWidth()/2) - chordLabel.prefWidth(-1)/2);
+            nextChordLabel.setLayoutX((chordCanvas.getWidth()/2) - nextChordLabel.prefWidth(-1)/2 + chordLabel.prefWidth(-1)*2.5);
+            nextLabel.setLayoutX(nextChordLabel.getLayoutX()-nextLabel.prefWidth(-1));
+        });
+        chordCanvas.heightProperty().addListener(evt -> {
+            chordVisual.draw();
+            chordLabel.setLayoutY((chordCanvas.getHeight()/6) - chordLabel.prefHeight(-1)/2);
+            nextChordLabel.setLayoutY((chordCanvas.getHeight()/6) - nextChordLabel.prefHeight(-1)/2);
+            nextLabel.setLayoutY(nextChordLabel.getLayoutY());
+        });
 
         close.setOnAction(this::close);
         playButton.setOnAction(this::start);
@@ -163,6 +223,20 @@ public class FileController implements ChordViewController {
 
         pointer = new PointerComponent(chordCanvas, chordVisual.getRectYEnd);
         mediaPlayer.currentTimeProperty().addListener(evt -> {
+            updateLabelChord();
+            chordLabel.setText(currentSegment.chord);
+            if (nextSegment != null) {
+                nextLabel.setText("Next: ");
+                nextChordLabel.setText(nextSegment.chord);
+                nextChordLabel.setFill(charts.get(nextSegment.chord));
+            } else {
+                nextChordLabel.setText("");
+                nextLabel.setText("");
+            }
+            chordLabel.setFill(charts.get(currentSegment.chord));
+            chordLabel.setLayoutX((chordCanvas.getWidth()/2) - (chordLabel.prefWidth(-1)/2));
+            nextChordLabel.setLayoutX((chordCanvas.getWidth() * 3/4) - nextChordLabel.prefWidth(-1)/2);
+            nextLabel.setLayoutX(nextChordLabel.getLayoutX()-nextLabel.prefWidth(-1));
             pointer.setProgress(mediaPlayer.getCurrentTime().toMillis()/totalTime);
             pointer.updateTransX();
         });
@@ -173,16 +247,48 @@ public class FileController implements ChordViewController {
                 chordVisual.draw();
                 pointer.linkContainer(canvasPane);
                 pointer.updateX();
+                chordLabel.setText("Press Play to show chord here");
+                chordLabel.setLayoutX((chordCanvas.getWidth()/2) - (chordLabel.prefWidth(-1)/2));
+                chordLabel.setLayoutY((chordCanvas.getHeight()/6) - (chordLabel.prefHeight(-1)/2));
+                nextChordLabel.setLayoutX((chordCanvas.getWidth()/2) - nextChordLabel.prefWidth(-1)/2 + chordLabel.prefWidth(-1)*2.5);
+                nextChordLabel.setLayoutY((chordCanvas.getHeight()/6) - nextChordLabel.prefHeight(-1)/2);
+                nextLabel.setLayoutX(nextChordLabel.getLayoutX()-nextLabel.prefWidth(-1));
+                nextLabel.setLayoutY(nextChordLabel.getLayoutY());
             });
         }).start();
     }
 
-
+    Segment[] filSeg;
     double totalTime;
+    double overlapDur;
+    private int iter;
+    private int segSize;
+    private Segment currentSegment;
+    private Segment nextSegment;
+    private HashMap<String, Color> charts;
+
+    public void updateLabelChord() {
+        if (nextSegment != null) {
+            while (mediaPlayer.getCurrentTime().toSeconds() >= nextSegment.from) {
+                if (iter < segSize) {
+                    currentSegment = nextSegment;
+                    nextSegment = filSeg[iter++];
+                } else {
+                    currentSegment = nextSegment;
+                    nextSegment = null;
+                    break;
+                }
+            }
+        }
+    }
+
     @FXML
     public void start(Event event) {
         if (isPlaying) return;
         isPlaying = true;
+        iter = 0;
+        currentSegment = filSeg[iter++];
+        if (iter < segSize) nextSegment = filSeg[iter++]; else nextSegment = null;
         mediaPlayer.play();
         totalTime = mediaPlayer.getTotalDuration().toMillis();
     }

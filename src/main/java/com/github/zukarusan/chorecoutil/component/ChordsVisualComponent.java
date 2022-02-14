@@ -1,4 +1,4 @@
-package com.github.zukarusan.chorecoutil.model;
+package com.github.zukarusan.chorecoutil.component;
 
 import com.github.zukarusan.chorecoutil.controller.FileController;
 import javafx.scene.canvas.Canvas;
@@ -6,10 +6,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.concurrent.Callable;
+import java.util.*;
 
 public class ChordsVisualComponent {
     public static final int[] color_value = {0, 255/2, 255};
@@ -42,25 +39,19 @@ public class ChordsVisualComponent {
         double prev_until = cur.until;
         int i = 0;
         int c = 0;
-//        double assert_totalDur_check = 0;
         for (FileController.Segment segment : segments) {
             if (!cur.chord.equals(segment.chord)) {
-//                assert_totalDur_check += prev_until - cur.from - overlapDur;
                 filteredSegments.add(new FileController.Segment(cur.from, prev_until, cur.chord));
                 cur = segment;
                 if (!charts.containsKey(cur.chord)) charts.put(cur.chord, getColorBase3(c++));
             } else if (i == segments.size()-1) {
-//                assert_totalDur_check += segment.until - cur.from - overlapDur;
-                filteredSegments.add(new FileController.Segment(cur.from, prev_until, cur.chord));
+                filteredSegments.add(new FileController.Segment(cur.from, segment.until, cur.chord));
                 if (!charts.containsKey(cur.chord)) charts.put(cur.chord, getColorBase3(c));
                 break;
             }
             prev_until = segment.until;
             i++;
         }
-//        if (assert_totalDur_check == durationSeconds) {
-//            System.out.println("TEST DURATIONS");
-//        }
 
         // TODO: Overlap duration still not precise enough, subtract each segment overlap and
         //          save into filtered segments new data structure
@@ -73,6 +64,7 @@ public class ChordsVisualComponent {
     double height = -1;
     double y_rect;
     double overlapLen;
+
     public void draw() {
         if ((height != canvas.getHeight() || width != canvas.getWidth()) || rect_buffer == null) {
             rect_height = canvas.getHeight()/3;
@@ -87,30 +79,34 @@ public class ChordsVisualComponent {
 
         // border fill
         double x = 0;
-        gc.setFill(Color.BLACK);
+        gc.setFill(Color.DARKGREY);
         for (Rectangle rect : rect_buffer) {
-            gc.fillRect(x+2, y_rect+2, rect.getWidth()-1, rect_height-2);
-            x += rect.getWidth()-overlapLen;
+            gc.fillRect(x, y_rect, rect.getWidth(), rect_height);
+            x += rect.getWidth();
         }
         // chord charts, rectangle fill
         x = 0;
         for (Rectangle rect : rect_buffer) {
             gc.setFill(rect.getFill());
-            gc.fillRect(x, y_rect, rect.getWidth(), rect_height);
+            gc.fillRect(x+2, y_rect+5, rect.getWidth()-4, rect_height-10);
             x += rect.getWidth();
         }
     }
 
-    public final Callable<Double> getRectYEnd = new Callable<>() {
+    public interface BufferedDouble {
+        double get();
+    }
+
+    public final BufferedDouble getRectYEnd = new BufferedDouble() {
         @Override
-        public Double call() {
+        public double get() {
             synchronized (canvas) {
                 return y_rect+rect_height;
             }
         }
     };
 
-    public double getDurationSeconds() {return durationSeconds;}
+    public double getOverlapDur() {return overlapDur;}
 
     public List<FileController.Segment> getFilteredSegments() {
         return this.filteredSegments;
@@ -127,8 +123,18 @@ public class ChordsVisualComponent {
     public List<Rectangle> getRectangles(double height, double container_width) {
         LinkedList<Rectangle> chordVis = new LinkedList<>();
         double pps = getPixelPerSecond(container_width);
-        for (FileController.Segment segment : filteredSegments) {
-            double dur = segment.until - segment.from;
+        FileController.Segment next;
+        FileController.Segment segment;
+        for (ListIterator<FileController.Segment> it = filteredSegments.listIterator(); it.hasNext();) {
+            double dur;
+            segment = it.next();
+            if (it.hasNext()) {
+                next = it.next();
+                dur = next.from - segment.from;
+                it.previous();
+            } else {
+                dur = segment.until - segment.from;
+            }
             Rectangle rect = new Rectangle(pps * dur, height, charts.get(segment.chord));
             rect.setStroke(Color.BLACK);
             rect.setStrokeWidth(2);

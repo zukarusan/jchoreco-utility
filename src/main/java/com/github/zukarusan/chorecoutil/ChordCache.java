@@ -6,6 +6,7 @@ import be.tarsos.dsp.io.jvm.AudioDispatcherFactory;
 import com.github.zukarusan.chorecoutil.controller.FileController;
 import com.github.zukarusan.chorecoutil.controller.exception.UnsupportedChordFileException;
 import com.github.zukarusan.jchoreco.system.ChordProcessor;
+import javafx.application.Platform;
 
 import javax.sound.sampled.UnsupportedAudioFileException;
 import java.io.*;
@@ -17,13 +18,11 @@ import java.util.List;
 
 public class ChordCache implements Closeable{
     private final File audio;
-//    private final RandomAccessFile byteCache;
+    private final List<FileController.Segment> SEGMENTS_CACHE;
 
     private final static int DEFAULT_BUFFER_WRITE_SIZE = 1024 * 16;
-    private final AudioDispatcher chordDispatcher;//, byteDispatcher;
-    private final List<FileController.Segment> SEGMENTS_CACHE;
-    private final Thread chordRunner;//, byteRunner;
-//    private long totalBytes;
+    private final AudioDispatcher chordDispatcher;
+    private Thread chordRunner = null;
     private boolean isFinished;
     private boolean hasAudioCache = false;
 
@@ -93,19 +92,27 @@ public class ChordCache implements Closeable{
         chordRunner.start();
     }
 
+    private ChordCache(File audio, List<FileController.Segment> segments) {
+        this.audio = audio;
+        this.SEGMENTS_CACHE = segments;
+        this.chordDispatcher = null;
+    }
+
     public List<FileController.Segment> getSegments() {
         if (!isFinished) throw new IllegalAccessError("Process not yet finished");
         return this.SEGMENTS_CACHE;
     }
 
     public void waitForProcessFinished() throws InterruptedException {
-        synchronized (chordDispatcher) {
-            if (isFinished) {
+        if (chordDispatcher != null) {
+            synchronized (chordDispatcher) {
+                if (isFinished) {
+                    chordRunner.interrupt();
+                    return;
+                }
+                chordDispatcher.wait();
                 chordRunner.interrupt();
-                return;
             }
-            chordDispatcher.wait();
-            chordRunner.interrupt();
         }
         System.out.println("Process Finished");
     }
@@ -123,17 +130,40 @@ public class ChordCache implements Closeable{
         }
     }
 
-    public static ChordCache fromSavedChord(File chordFile) throws UnsupportedChordFileException {
+    public static ChordCache fromSavedChord(File chordFile) throws UnsupportedChordFileException, FileNotFoundException {
         File audio = new File("temp_audio.wav");
         if (audio.exists()) if (!audio.delete()) throw new IllegalAccessError("File cache is busy");
 
+        BufferedReader reader = new BufferedReader(new FileReader(chordFile));
+        String row;
+        long totalSegment;
+        List<FileController.Segment> segments = new LinkedList<>();
+        try {
+            row = reader.readLine();
+            if (!row.equals("SEGMENTS")) throw new UnsupportedChordFileException("Cannot read segments");
+            row = reader.readLine();
+            totalSegment = Long.parseLong(row);
+            for (int i = 0; i < totalSegment; i++) {
+                row = reader.readLine();
+                String[] parse = row.split(" ");
+                if (parse.length != 3)
+                    continue;
+                segments.add(new FileController.Segment(Float.parseFloat(parse[0]), Float.parseFloat(parse[1]), parse[2]));
+            }
+            reader.close();
+        } catch (IOException e) {
+            throw new IllegalStateException("Error reading file", e);
+        } catch (IndexOutOfBoundsException e) {
+            throw new IllegalStateException("Error file read", e);
+        }
+
         // TODO: check if correctly parsed the bytes, check the byte order or check the sample sections
         try (RandomAccessFile rafChord = new RandomAccessFile(chordFile, "r")) {
-            String row = rafChord.readLine();
-            if (!row.equals("SEGMENTS")) throw new UnsupportedChordFileException();
-            row = rafChord.readLine();
-            long totalSegment = Long.parseLong(row);
-            for(int i = 0; i < totalSegment; i++) {
+            String rafRow = rafChord.readLine();
+            if (!rafRow.equals("SEGMENTS")) throw new UnsupportedChordFileException();
+            rafRow = rafChord.readLine();
+            long rafTS = Long.parseLong(rafRow);
+            for(int i = 0; i < rafTS; i++) {
                 rafChord.readLine();
             }
             String aHeader = "AUDIO";
@@ -154,8 +184,9 @@ public class ChordCache implements Closeable{
         } catch (IOException e) {
             throw new IllegalStateException("Cannot load audio cache file", e);
         }
-        ChordCache cache = new ChordCache(audio);
+        ChordCache cache = new ChordCache(audio, segments);
         cache.hasAudioCache = true;
+        cache.isFinished = true;
         return cache;
     }
 
@@ -165,8 +196,15 @@ public class ChordCache implements Closeable{
 
     @Override
     public void close() {
-        chordDispatcher.stop();
-        chordRunner.stop();
-        if (hasAudioCache) if (!audio.delete()) throw new IllegalAccessError("WARNING: Cannot delete audio cache, file is busy");
+        if (chordDispatcher != null) {
+            chordDispatcher.stop();
+            chordRunner.stop();
+        }
+        if (hasAudioCache){
+            Platform.runLater(() -> {
+                if (!audio.delete())
+                    throw new IllegalAccessError("WARNING: Cannot delete audio cache, file is busy");
+            });
+        }
     }
 }

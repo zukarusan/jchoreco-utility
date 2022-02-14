@@ -11,7 +11,7 @@ module com.github.zukarusan.chorecoutil {
 
     exports com.github.zukarusan.chorecoutil.controller;
     exports com.github.zukarusan.chorecoutil.controller.exception;
-    exports com.github.zukarusan.chorecoutil.model;
+    exports com.github.zukarusan.chorecoutil.component;
     exports com.github.zukarusan.chorecoutil;
     opens com.github.zukarusan.chorecoutil.controller to javafx.fxml;
     opens com.github.zukarusan.chorecoutil to jchoreco;

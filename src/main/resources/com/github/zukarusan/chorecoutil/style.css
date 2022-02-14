@@ -13,3 +13,17 @@
 .buttonMenu:pressed{
     -fx-background-color: #17364f;
 }
+
+.boxRecent{
+    -fx-border-color:  #17202b;
+    -fx-border-width:  1 0;
+    -fx-background-color:  #212f40;
+}
+
+.boxRecent:hover {
+    -fx-background-color:  #3d5676;
+}
+
+.boxRecent:pressed{
+    -fx-background-color: #17364f;
+}

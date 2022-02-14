@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.scene.text.*?>
+<?import javafx.scene.shape.*?>
 <?import javafx.scene.canvas.*?>
 <?import javafx.geometry.*?>
 <?import java.lang.*?>
@@ -12,19 +14,15 @@
         <menus>
           <Menu mnemonicParsing="false" text="File">
             <items>
-                  <MenuItem fx:id="saveMenuItem" mnemonicParsing="false" text="Save" />
-                  <MenuItem mnemonicParsing="false" text="Save As..." />
-                  <SeparatorMenuItem mnemonicParsing="false" />
-                  <MenuItem mnemonicParsing="false" text="Record new" />
-                  <MenuItem mnemonicParsing="false" text="Open..." />
+                  <MenuItem fx:id="saveMenuItem" mnemonicParsing="false" text="Save As..." />
                   <SeparatorMenuItem mnemonicParsing="false" />
               <MenuItem fx:id="close" mnemonicParsing="false" text="Close" />
             </items>
           </Menu>
-          <Menu mnemonicParsing="false" text="Help">
+          <Menu mnemonicParsing="false" text="About">
             <items>
-              <MenuItem mnemonicParsing="false" text="Chord Color Map" />
-                  <MenuItem mnemonicParsing="false" text="About" />
+                  <MenuItem mnemonicParsing="false" text="Repository" />
+                  <MenuItem mnemonicParsing="false" text="Chord System" />
             </items>
           </Menu>
         </menus>
@@ -36,7 +34,7 @@
                   <Insets bottom="10.0" left="20.0" right="20.0" top="10.0" />
                </padding>
             </Button>
-            <Button mnemonicParsing="false" text="Stop">
+            <Button fx:id="stopButton" mnemonicParsing="false" text="Stop">
                <padding>
                   <Insets bottom="10.0" left="20.0" right="20.0" top="10.0" />
                </padding>
@@ -45,7 +43,17 @@
       </ToolBar>
       <Pane fx:id="canvasPane" prefHeight="200.0" prefWidth="200.0" VBox.vgrow="ALWAYS">
          <children>
+            <Label fx:id="chordLabel" alignment="CENTER">
+               <font>
+                  <Font name="Lemon Regular" size="26.0" />
+               </font>
+            </Label>
             <Canvas fx:id="chordCanvas" height="530.0" width="800.0" />
+            <Label fx:id="nextChordLabel" alignment="CENTER" layoutX="10.0" layoutY="10.0">
+               <font>
+                  <Font name="Lemon Regular" size="20.0" />
+               </font>
+            </Label>
          </children>
       </Pane>
    </children>

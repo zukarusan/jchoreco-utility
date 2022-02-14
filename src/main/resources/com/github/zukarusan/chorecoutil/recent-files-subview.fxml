@@ -7,7 +7,7 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.*?>
 
-<HBox alignment="CENTER_LEFT" prefHeight="0.0" prefWidth="600.0" style="-fx-border-color: #17202b; -fx-border-width: 1 0; -fx-background-color: #212f40;" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1">
+<HBox alignment="CENTER_LEFT" prefHeight="0.0" prefWidth="600.0" styleClass="boxRecent" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1">
    <children>
       <Label text="Chord123" textFill="#e1e1e1">
          <effect>
